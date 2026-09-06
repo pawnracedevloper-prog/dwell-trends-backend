@@ -55,3 +55,52 @@ export const toggleWishlist = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const updateUserProfile = async (req, res) => {
+  try {
+    const { name, phone, address, city, pincode } = req.body;
+    const userId = req.user?._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+    user.address = {
+      street: address || user.address?.street,
+      city: city || user.address?.city,
+      pincode: pincode || user.address?.pincode,
+    };
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: { name: user.name, email: user.email, phone: user.phone, address: user.address },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const directResetPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User with this email does not exist." });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Password updated successfully. You can now sign in." });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

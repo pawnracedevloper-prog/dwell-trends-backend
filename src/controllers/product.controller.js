@@ -5,39 +5,132 @@ export const createProduct = async (req, res) => {
   try {
     const { name, brand, category, description, price, mrp, variants, fabric, work, details, isNewItem } = req.body;
 
-    // Assuming multer is configured to pass files in req.files
-    const imageUploadPromises = req.files.map((file) =>
-      cloudinary.uploader.upload(file.path, { folder: "saanvi_products" })
-    );
-    const uploadedImages = await Promise.all(imageUploadPromises);
+    let uploadedImages = [];
+    if (req.files && req.files.length > 0) {
+      const imageUploadPromises = req.files.map((file) =>
+        cloudinary.uploader.upload(file.path, { folder: "dwell_trends_products" })
+      );
+      uploadedImages = await Promise.all(imageUploadPromises);
+    }
 
     const images = uploadedImages.map((img) => ({
       public_id: img.public_id,
       url: img.secure_url,
     }));
 
+    // Safely parse JSON inputs whether they come in as strings (from FormData) or parsed objects
+    const parsedVariants = typeof variants === "string" ? JSON.parse(variants) : variants;
+    const parsedDetails = typeof details === "string" ? JSON.parse(details) : details;
+
     const product = new Product({
-      name, brand, category, description, price, mrp, variants: JSON.parse(variants),
-      images, fabric, work, details: JSON.parse(details), isNewItem
+      name, 
+      brand: brand || "Dwell Trends", 
+      category, 
+      description, 
+      price: Number(price), 
+      mrp: Number(mrp), 
+      variants: parsedVariants,
+      images, 
+      fabric, 
+      work, 
+      details: parsedDetails, 
+      isNewItem: isNewItem === "true" || isNewItem === true
     });
 
     await product.save();
     res.status(201).json({ success: true, product });
   } catch (error) {
+    console.error("Product creation error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const getProducts = async (req, res) => {
   try {
-    const { category, search } = req.query;
+    const { category, search, minPrice, maxPrice, sort } = req.query;
     let query = {};
     
-    if (category) query.category = category;
+    if (category && category !== "all") query.category = category;
     if (search) query.name = { $regex: search, $options: "i" };
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
 
-    const products = await Product.find(query).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, products });
+    let sortOption = { createdAt: -1 };
+    if (sort === "price-asc") sortOption = { price: 1 };
+    if (sort === "price-desc") sortOption = { price: -1 };
+
+    const products = await Product.find(query).sort(sortOption);
+    res.status(200).json({ success: true, count: products.length, products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getProductById = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+    res.status(200).json({ success: true, product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    const { name, brand, category, description, price, mrp, variants, fabric, work, details, isNewItem } = req.body;
+
+    let updatedImages = product.images;
+    if (req.files && req.files.length > 0) {
+      // Optional: Delete old images from Cloudinary if replacing
+      for (const img of product.images) {
+        if (img.public_id) await cloudinary.uploader.destroy(img.public_id);
+      }
+
+      const imageUploadPromises = req.files.map((file) =>
+        cloudinary.uploader.upload(file.path, { folder: "dwell_trends_products" })
+      );
+      const uploadedImages = await Promise.all(imageUploadPromises);
+      updatedImages = uploadedImages.map((img) => ({
+        public_id: img.public_id,
+        url: img.secure_url,
+      }));
+    }
+
+    const parsedVariants = variants ? (typeof variants === "string" ? JSON.parse(variants) : variants) : product.variants;
+    const parsedDetails = details ? (typeof details === "string" ? JSON.parse(details) : details) : product.details;
+
+    product = await Product.findByIdAndUpdate(
+      id,
+      {
+        name: name || product.name,
+        brand: brand || product.brand,
+        category: category || product.category,
+        description: description || product.description,
+        price: price ? Number(price) : product.price,
+        mrp: mrp ? Number(mrp) : product.mrp,
+        variants: parsedVariants,
+        images: updatedImages,
+        fabric: fabric || product.fabric,
+        work: work || product.work,
+        details: parsedDetails,
+        isNewItem: isNewItem !== undefined ? (isNewItem === "true" || isNewItem === true) : product.isNewItem,
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({ success: true, product });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -46,15 +139,17 @@ export const getProducts = async (req, res) => {
 export const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
 
     // Delete images from Cloudinary
     for (const image of product.images) {
-      await cloudinary.uploader.destroy(image.public_id);
+      if (image.public_id) {
+        await cloudinary.uploader.destroy(image.public_id);
+      }
     }
 
     await product.deleteOne();
-    res.status(200).json({ success: true, message: "Product deleted" });
+    res.status(200).json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
