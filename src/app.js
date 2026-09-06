@@ -20,7 +20,8 @@ app.use(limiter);
 app.use(cors({
     origin: [
         "http://localhost:5173",
-        "http://localhost:8080"
+        "http://localhost:8080",
+        "https://dwelltrends.vercel.app",
     ],
     credentials: true,
     maxAge: 86400
