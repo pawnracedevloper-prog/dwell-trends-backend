@@ -4,6 +4,11 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
+// Import Routes
+import userRouter from "./routes/user.route.js";
+import productRouter from "./routes/product.route.js";
+import orderRouter from "./routes/order.route.js";
+
 const app = express();
 
 app.use(helmet()); 
@@ -17,15 +22,30 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "https://dwelltrends.vercel.app",
+    "https://dwell-trends.vercel.app"
+];
+
 app.use(cors({
-    origin: [
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "https://dwelltrends.vercel.app",
-    ],
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            return callback(new Error("CORS policy violation"), false);
+        }
+        return callback(null, true);
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     maxAge: 86400
 }));
+
+// Explicit global handler for preflight OPTIONS requests
+app.options("*", cors());
 
 app.use(express.json({ limit: "50kb" }));
 app.use(express.urlencoded({ extended: true, limit: "50kb" }));
@@ -36,12 +56,6 @@ app.use(cookieParser());
 app.get("/api/v1/ping", (req, res) => {
     res.status(200).json({ success: true, message: "Server is awake" });
 });
-
-// Import Routes
-import userRouter from "./routes/user.route.js";
-import productRouter from "./routes/product.route.js";
-import orderRouter from "./routes/order.route.js";
-
 
 // Mount Routes
 app.use("/api/v1/users", userRouter);
