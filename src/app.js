@@ -1,3 +1,4 @@
+import connectDB from "./db/index.js";
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -8,6 +9,7 @@ import rateLimit from "express-rate-limit";
 import userRouter from "./routes/user.route.js";
 import productRouter from "./routes/product.route.js";
 import orderRouter from "./routes/order.route.js";
+
 
 const app = express();
 
@@ -51,7 +53,14 @@ app.use(express.json({ limit: "50kb" }));
 app.use(express.urlencoded({ extended: true, limit: "50kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
-
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Database connection failed" });
+    }
+});
 // Health check route
 app.get("/api/v1/ping", (req, res) => {
     res.status(200).json({ success: true, message: "Server is awake" });

@@ -1,13 +1,25 @@
 import mongoose from "mongoose";
 
+// Cache connection state
+let isConnected = false;
+
 const connectDB = async () => {
-    try {
-        const connectionInstance = await mongoose.connect(`${process.env.MONGO_URI}/saanvi-fashion`);
-        console.log(`\nMongoDB connected !! DB HOST: ${connectionInstance.connection.host}`);
-    } catch (error) {
-        console.error("MONGODB connection FAILED: ", error);
-        process.exit(1);
-    }
+  if (isConnected) return;
+
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      // Disables buffering so Mongoose throws the real network error instantly
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
+    });
+    
+    isConnected = true;
+    console.log(`MongoDB connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error.message);
+    // Throw error instead of exiting the process so serverless functions handle it
+    throw error;
+  }
 };
 
 export default connectDB;
