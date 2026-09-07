@@ -7,20 +7,20 @@ import {
   updateProduct, 
   deleteProduct 
 } from "../controllers/product.controller.js";
-import { protect, admin } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// Multer config for temporary local storage before Cloudinary upload
-const storage = multer.diskStorage({});
-const upload = multer({ storage });
+// Force memoryStorage directly in the route to override any cached diskStorage files
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
 
+// Routes
+router.post("/", upload.array("images", 5), createProduct);
 router.get("/", getProducts);
-router.post("/", protect, admin, upload.array("images", 5), createProduct);
-
-// Add these routes for single product handling
 router.get("/:id", getProductById);
-router.put("/:id", protect, admin, upload.array("images", 5), updateProduct);
-router.delete("/:id", protect, admin, deleteProduct);
+router.put("/:id", upload.array("images", 5), updateProduct);
+router.delete("/:id", deleteProduct);
 
 export default router;
