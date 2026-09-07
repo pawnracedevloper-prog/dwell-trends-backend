@@ -5,20 +5,26 @@ export const createProduct = async (req, res) => {
   try {
     const { name, brand, category, description, price, mrp, variants, fabric, work, details, isNewItem } = req.body;
 
-    let uploadedImages = [];
+    let images = [];
     if (req.files && req.files.length > 0) {
-      const imageUploadPromises = req.files.map((file) =>
-        uploadBufferToCloudinary(file.buffer, "dwell_trends_products")
-      );
-      uploadedImages = await Promise.all(imageUploadPromises);
+      const imageUploadPromises = req.files.map((file) => {
+        if (!file.buffer) {
+          throw new Error("File buffer missing. Ensure multer memoryStorage is configured.");
+        }
+        return uploadBufferToCloudinary(file.buffer, "dwell_trends_products");
+      });
+
+      const uploadedImages = await Promise.all(imageUploadPromises);
+
+      images = uploadedImages
+        .filter((img) => img && img.public_id)
+        .map((img) => ({
+          public_id: img.public_id,
+          url: img.secure_url,
+        }));
     }
 
-    const images = uploadedImages.map((img) => ({
-      public_id: img.public_id,
-      url: img.secure_url,
-    }));
-
-    // Safely parse JSON inputs whether they come in as strings (from FormData) or parsed objects
+    // Safely parse JSON inputs
     const parsedVariants = typeof variants === "string" ? JSON.parse(variants) : variants;
     const parsedDetails = typeof details === "string" ? JSON.parse(details) : details;
 
@@ -102,10 +108,12 @@ export const updateProduct = async (req, res) => {
         uploadBufferToCloudinary(file.buffer, "dwell_trends_products")
       );
       const uploadedImages = await Promise.all(imageUploadPromises);
-      updatedImages = uploadedImages.map((img) => ({
-        public_id: img.public_id,
-        url: img.secure_url,
-      }));
+      updatedImages = uploadedImages
+        .filter((img) => img && img.public_id)
+        .map((img) => ({
+          public_id: img.public_id,
+          url: img.secure_url,
+        }));
     }
 
     const parsedVariants = variants ? (typeof variants === "string" ? JSON.parse(variants) : variants) : product.variants;
@@ -141,7 +149,6 @@ export const deleteProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: "Product not found" });
 
-    // Delete images from Cloudinary
     for (const image of product.images) {
       if (image.public_id) {
         await cloudinary.uploader.destroy(image.public_id);
