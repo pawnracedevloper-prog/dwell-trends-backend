@@ -14,17 +14,13 @@ const orderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     guestEmail: { type: String },
-
-    // Line items snapshot
     items: [orderItemSchema],
 
-    // Financials
     totalMrp: { type: Number, required: true, default: 0 },
     discount: { type: Number, required: true, default: 0 },
     shippingFee: { type: Number, required: true, default: 0 },
     finalTotal: { type: Number, required: true },
 
-    // Fulfillment
     shippingAddress: {
       fullName: { type: String, required: true },
       phone: { type: String, required: true },
@@ -34,12 +30,7 @@ const orderSchema = new mongoose.Schema(
       pinCode: { type: String, required: true },
     },
 
-    // Processing Status
-    paymentMethod: {
-      type: String,
-      enum: ["upi", "card", "cod"],
-      default: "upi",
-    },
+    paymentMethod: { type: String, default: "upi" },
     paymentStatus: {
       type: String,
       enum: ["Pending", "Paid", "Failed"],
@@ -50,6 +41,10 @@ const orderSchema = new mongoose.Schema(
       enum: ["Processing", "Confirmed", "Shipped", "Delivered", "Cancelled"],
       default: "Processing",
     },
+
+    // Method 1 Verification Fields
+    paymentUtr: { type: String, default: "" }, // 12-digit UPI Ref/UTR entered by customer
+    upiTransactionRef: { type: String, default: "" }, // DT_orderId
   },
   { timestamps: true }
 );

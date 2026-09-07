@@ -153,3 +153,33 @@ export const updateOrderStatus = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const submitOrderUtr = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { utr } = req.body;
+
+    if (!utr || utr.trim().length < 6) {
+      return res.status(400).json({ success: false, message: "Valid UTR or Reference number is required." });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      { 
+        $set: { 
+          paymentUtr: utr.trim(),
+          upiTransactionRef: `DT_${orderId}`
+        } 
+      },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    res.status(200).json({ success: true, order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
