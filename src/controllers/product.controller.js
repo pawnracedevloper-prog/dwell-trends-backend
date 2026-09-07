@@ -1,19 +1,5 @@
 import { Product } from "../models/product.model.js";
-import cloudinary from "../utils/cloudinary.js"; // Pre-configured Cloudinary instance
-
-// Helper function to stream upload in-memory Multer buffers to Cloudinary
-const uploadBufferToCloudinary = (fileBuffer, folder = "dwell_trends_products") => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: "auto" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
-    uploadStream.end(fileBuffer);
-  });
-};
+import cloudinary, { uploadBufferToCloudinary } from "../utils/cloudinary.js";
 
 export const createProduct = async (req, res) => {
   try {
