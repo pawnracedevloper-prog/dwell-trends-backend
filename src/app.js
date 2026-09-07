@@ -9,6 +9,7 @@ import rateLimit from "express-rate-limit";
 import userRouter from "./routes/user.route.js";
 import productRouter from "./routes/product.route.js";
 import orderRouter from "./routes/order.route.js";
+import paymentRouter from "./routes/payment.route.js";
 
 
 const app = express();
@@ -70,7 +71,7 @@ app.get("/api/v1/ping", (req, res) => {
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/orders", orderRouter);
-
+app.use("/api/v1/payments", paymentRouter);
 // Error Handler
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;

@@ -1,5 +1,19 @@
 import { Product } from "../models/product.model.js";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../utils/cloudinary.js"; // Pre-configured Cloudinary instance
+
+// Helper function to stream upload in-memory Multer buffers to Cloudinary
+const uploadBufferToCloudinary = (fileBuffer, folder = "dwell_trends_products") => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder, resource_type: "auto" },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    uploadStream.end(fileBuffer);
+  });
+};
 
 export const createProduct = async (req, res) => {
   try {
@@ -8,7 +22,7 @@ export const createProduct = async (req, res) => {
     let uploadedImages = [];
     if (req.files && req.files.length > 0) {
       const imageUploadPromises = req.files.map((file) =>
-        cloudinary.uploader.upload(file.path, { folder: "dwell_trends_products" })
+        uploadBufferToCloudinary(file.buffer, "dwell_trends_products")
       );
       uploadedImages = await Promise.all(imageUploadPromises);
     }
@@ -23,18 +37,18 @@ export const createProduct = async (req, res) => {
     const parsedDetails = typeof details === "string" ? JSON.parse(details) : details;
 
     const product = new Product({
-      name, 
-      brand: brand || "Dwell Trends", 
-      category, 
-      description, 
-      price: Number(price), 
-      mrp: Number(mrp), 
+      name,
+      brand: brand || "Dwell Trends",
+      category,
+      description,
+      price: Number(price),
+      mrp: Number(mrp),
       variants: parsedVariants,
-      images, 
-      fabric, 
-      work, 
-      details: parsedDetails, 
-      isNewItem: isNewItem === "true" || isNewItem === true
+      images,
+      fabric,
+      work,
+      details: parsedDetails,
+      isNewItem: isNewItem === "true" || isNewItem === true,
     });
 
     await product.save();
@@ -49,7 +63,7 @@ export const getProducts = async (req, res) => {
   try {
     const { category, search, minPrice, maxPrice, sort } = req.query;
     let query = {};
-    
+
     if (category && category !== "all") query.category = category;
     if (search) query.name = { $regex: search, $options: "i" };
     if (minPrice || maxPrice) {
@@ -93,13 +107,13 @@ export const updateProduct = async (req, res) => {
 
     let updatedImages = product.images;
     if (req.files && req.files.length > 0) {
-      // Optional: Delete old images from Cloudinary if replacing
+      // Delete old images from Cloudinary if replacing
       for (const img of product.images) {
         if (img.public_id) await cloudinary.uploader.destroy(img.public_id);
       }
 
       const imageUploadPromises = req.files.map((file) =>
-        cloudinary.uploader.upload(file.path, { folder: "dwell_trends_products" })
+        uploadBufferToCloudinary(file.buffer, "dwell_trends_products")
       );
       const uploadedImages = await Promise.all(imageUploadPromises);
       updatedImages = uploadedImages.map((img) => ({
