@@ -1,5 +1,5 @@
 import express from "express";
-import { createOrder, getUserOrders } from "../controllers/order.controller.js";
+import { createOrder, getUserOrders,getOrderById } from "../controllers/order.controller.js";
 import { protect, optionalAuth } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -9,5 +9,5 @@ router.post("/", optionalAuth, createOrder);
 
 // Strictly protected so users only see their own orders
 router.get("/myorders", protect, getUserOrders);
-
+router.get("/:orderId", optionalAuth, getOrderById);
 export default router;

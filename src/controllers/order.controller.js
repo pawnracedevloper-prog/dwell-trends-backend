@@ -51,3 +51,23 @@ export const getUserOrders = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getOrderById = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // Allow access if the requester is the order owner or a guest tracking by order ID
+    if (order.user && req.user && order.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Unauthorized access to order" });
+    }
+
+    res.status(200).json({ success: true, order });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
