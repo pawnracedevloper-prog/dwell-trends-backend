@@ -5,18 +5,21 @@ import {
   getProducts, 
   getProductById, 
   updateProduct, 
-  deleteProduct 
+  deleteProduct,
+  updateDealStatus // Added import
 } from "../controllers/product.controller.js";
 
 const router = express.Router();
 
-// Force memoryStorage directly in the route to override any cached diskStorage files
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// Routes
+// Deal Mutation Route (Must be declared before /:id)
+router.patch("/deals", updateDealStatus);
+
+// Core Product CRUD Routes
 router.post("/", upload.array("images", 5), createProduct);
 router.get("/", getProducts);
 router.get("/:id", getProductById);

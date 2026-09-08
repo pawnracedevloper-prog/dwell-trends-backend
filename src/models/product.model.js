@@ -25,7 +25,23 @@ const productSchema = new mongoose.Schema(
     
     price: { type: Number, required: true, min: 0 },
     mrp: { type: Number, required: true, min: 0 },
+    mainCategory: { 
+      type: String, 
+      enum: ["Men", "Women", "Kids", "Beauty", "Home"], 
+      required: true 
+    },
+    subCategory: { type: String, required: true }, // Your existing category field
     
+    // New Deal Engine Fields
+    dealType: {
+      type: String,
+      enum: ["None", "Hot", "Wow"],
+      default: "None",
+    },
+    dealPrice: {
+      type: Number,
+      default: null,
+    },
     // Tracks specific combinations of size/color for precise inventory
     variants: [variantSchema],
     

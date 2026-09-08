@@ -29,6 +29,14 @@ const orderSchema = new mongoose.Schema(
       state: { type: String, default: "" },
       pinCode: { type: String, required: true },
     },
+    tokensUsed: {
+      type: Number,
+      default: 0,
+    },
+    tokensEarned: {
+      type: Number,
+      default: 0,
+    },
 
     paymentMethod: { type: String, default: "upi" },
     paymentStatus: {

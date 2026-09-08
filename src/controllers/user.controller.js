@@ -14,7 +14,11 @@ export const registerUser = async (req, res) => {
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
     
-    res.status(201).json({ success: true, token, user: { name: user.name, email: user.email, role: user.role } });
+    res.status(201).json({ 
+      success: true, 
+      token, 
+      user: { name: user.name, email: user.email, role: user.role, walletTokens: user.walletTokens } 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -32,7 +36,11 @@ export const loginUser = async (req, res) => {
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-    res.status(200).json({ success: true, token, user: { name: user.name, email: user.email, role: user.role } });
+    res.status(200).json({ 
+      success: true, 
+      token, 
+      user: { name: user.name, email: user.email, role: user.role, walletTokens: user.walletTokens } 
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -79,7 +87,7 @@ export const updateUserProfile = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: { name: user.name, email: user.email, phone: user.phone, address: user.address },
+      user: { name: user.name, email: user.email, phone: user.phone, address: user.address, walletTokens: user.walletTokens },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -100,6 +108,18 @@ export const directResetPassword = async (req, res) => {
     await user.save();
 
     res.status(200).json({ success: true, message: "Password updated successfully. You can now sign in." });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    res.status(200).json({ success: true, user });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

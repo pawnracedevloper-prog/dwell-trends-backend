@@ -4,7 +4,8 @@ import {
   loginUser, 
   toggleWishlist, 
   updateUserProfile, 
-  directResetPassword 
+  directResetPassword ,
+  getUserProfile
 } from "../controllers/user.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
@@ -14,6 +15,7 @@ router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/reset-password", directResetPassword);
 router.post("/wishlist", protect, toggleWishlist);
+router.get("/profile", protect, getUserProfile);
 router.put("/profile", protect, updateUserProfile);
 
 export default router;

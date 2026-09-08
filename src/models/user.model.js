@@ -20,6 +20,10 @@ const userSchema = new mongoose.Schema(
     phone: { type: String },
     addresses: [addressSchema],
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+    walletTokens: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

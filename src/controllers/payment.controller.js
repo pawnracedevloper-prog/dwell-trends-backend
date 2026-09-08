@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import axios from "axios";
 import { Order } from "../models/order.model.js";
+import { User } from "../models/user.model.js";
 
 const PHONEPE_MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID || "PGTESTPAYUAT";
 const PHONEPE_SALT_KEY = process.env.PHONEPE_SALT_KEY || "099eb0cd-02cf-4e2a-8aca-3e6c6aff0399";
@@ -71,12 +72,20 @@ export const checkPaymentStatus = async (req, res) => {
     );
 
     if (response.data.success && response.data.code === "PAYMENT_SUCCESS") {
-      const updatedOrder = await Order.findByIdAndUpdate(
-        orderId,
-        { paymentStatus: "Paid", orderStatus: "Confirmed" },
-        { new: true }
-      );
-      return res.status(200).json({ success: true, paid: true, order: updatedOrder });
+      const order = await Order.findById(orderId);
+      if (order && order.paymentStatus !== "Paid") {
+        order.paymentStatus = "Paid";
+        order.orderStatus = "Confirmed";
+        await order.save();
+
+        // Automated Token Credit on Gateway Success
+        if (order.user && order.tokensEarned > 0) {
+          await User.findByIdAndUpdate(order.user, { $inc: { walletTokens: order.tokensEarned } });
+        }
+
+        return res.status(200).json({ success: true, paid: true, order });
+      }
+      return res.status(200).json({ success: true, paid: true, order });
     }
 
     return res.status(200).json({ success: true, paid: false, status: response.data.code });

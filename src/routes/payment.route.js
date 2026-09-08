@@ -1,6 +1,6 @@
 import express from "express";
 import { initiatePayment, checkPaymentStatus } from "../controllers/payment.controller.js";
-import { protect, optionalAuth } from "../middlewares/auth.middleware.js";
+import { optionalAuth } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 

@@ -1,5 +1,6 @@
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
+import { User } from "../models/user.model.js";
 import mongoose from "mongoose";
 
 export const createOrder = async (req, res) => {
@@ -13,6 +14,7 @@ export const createOrder = async (req, res) => {
       shippingFee,
       finalTotal,
       guestEmail,
+      tokensToUse, // Number of wallet tokens requested to apply
     } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -23,9 +25,8 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: "Incomplete shipping address." });
     }
 
-    // 1. Process items, validate IDs, and update stock safely
+    // 1. Process items, validate IDs, and decrement stock
     const formattedItems = [];
-
     for (const item of items) {
       const rawId = item.product || item.productId || item._id;
       const isValidId = mongoose.Types.ObjectId.isValid(rawId);
@@ -57,7 +58,26 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // 2. Create Order
+    // 2. Token Deduction Logistics (1 Token = ₹1)
+    let baseAmount = Number(finalTotal) || 0;
+    let appliedTokens = 0;
+
+    if (req.user && tokensToUse > 0) {
+      const user = await User.findById(req.user._id);
+      if (user && user.walletTokens > 0) {
+        appliedTokens = Math.min(Number(tokensToUse), user.walletTokens, baseAmount);
+        baseAmount -= appliedTokens;
+
+        // Deduct from DB wallet immediately
+        user.walletTokens -= appliedTokens;
+        await user.save();
+      }
+    }
+
+    // Earn 1 Token for every ₹100 spent on the final paid amount
+    const tokensEarned = Math.floor(baseAmount / 100);
+
+    // 3. Create Order document
     const order = new Order({
       user: req.user ? req.user._id : null,
       guestEmail: guestEmail || (req.user ? req.user.email : undefined),
@@ -73,10 +93,12 @@ export const createOrder = async (req, res) => {
       paymentMethod: paymentMethod || "upi",
       paymentStatus: "Pending",
       orderStatus: "Processing",
-      totalMrp: Number(totalMrp) || Number(finalTotal) || 0,
+      totalMrp: Number(totalMrp) || baseAmount,
       discount: Number(discount) || 0,
       shippingFee: Number(shippingFee) || 0,
-      finalTotal: Number(finalTotal) || 0,
+      finalTotal: baseAmount,
+      tokensUsed: appliedTokens,
+      tokensEarned: tokensEarned,
     });
 
     await order.save();
@@ -109,7 +131,7 @@ export const getOrderById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    // Allow access if guest tracking or matching user
+    // Prevent unauthorized users from inspecting another account's orders
     if (order.user && req.user && order.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: "Unauthorized access to order" });
     }
@@ -138,17 +160,50 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid order ID format." });
     }
 
-    const updatedOrder = await Order.findByIdAndUpdate(
-      orderId,
-      { $set: { orderStatus, paymentStatus } },
-      { new: true }
-    );
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
-    if (!updatedOrder) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+    const wasPaidBefore = order.paymentStatus === "Paid";
+    const wasCancelledBefore = order.orderStatus === "Cancelled";
+
+    // 1. Credit earned tokens ONLY when flipping status from unconfirmed to Paid
+    if (!wasPaidBefore && paymentStatus === "Paid" && order.user && order.tokensEarned > 0) {
+      await User.findByIdAndUpdate(order.user, { $inc: { walletTokens: order.tokensEarned } });
     }
 
-    return res.status(200).json({ success: true, order: updatedOrder });
+    // 2. Handle Order Cancellation: Refund spent tokens and restore inventory stock
+    if (!wasCancelledBefore && orderStatus === "Cancelled") {
+      // Refund spent tokens back to user's wallet
+      if (order.user && order.tokensUsed > 0) {
+        await User.findByIdAndUpdate(order.user, { $inc: { walletTokens: order.tokensUsed } });
+      }
+
+      // Re-increment stock levels
+      for (const item of order.items) {
+        if (item.product) {
+          const product = await Product.findById(item.product);
+          if (product && product.variants && product.variants.length > 0) {
+            const variantIndex = product.variants.findIndex(
+              (v) =>
+                (v.size || "").toLowerCase() === (item.selectedSize || "").toLowerCase() &&
+                (v.colourName || "").toLowerCase() === (item.selectedColour || "").toLowerCase()
+            );
+
+            if (variantIndex !== -1) {
+              product.variants[variantIndex].stock += Number(item.qty);
+              await product.save();
+            }
+          }
+        }
+      }
+    }
+
+    // Update the record
+    order.orderStatus = orderStatus || order.orderStatus;
+    order.paymentStatus = paymentStatus || order.paymentStatus;
+    await order.save();
+
+    return res.status(200).json({ success: true, order });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -165,11 +220,11 @@ export const submitOrderUtr = async (req, res) => {
 
     const order = await Order.findByIdAndUpdate(
       orderId,
-      { 
-        $set: { 
+      {
+        $set: {
           paymentUtr: utr.trim(),
-          upiTransactionRef: `DT_${orderId}`
-        } 
+          upiTransactionRef: `DT_${orderId}`,
+        },
       },
       { new: true }
     );
