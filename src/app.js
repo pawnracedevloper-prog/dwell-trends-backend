@@ -10,7 +10,7 @@ import userRouter from "./routes/user.route.js";
 import productRouter from "./routes/product.route.js";
 import orderRouter from "./routes/order.route.js";
 import paymentRouter from "./routes/payment.route.js";
-
+import campaignRouter from "./routes/campaign.routes.js";
 
 const app = express();
 
@@ -72,6 +72,7 @@ app.use("/api/v1/users", userRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/orders", orderRouter);
 app.use("/api/v1/payments", paymentRouter);
+app.use("/api/v1/campaigns", campaignRouter);
 // Error Handler
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
