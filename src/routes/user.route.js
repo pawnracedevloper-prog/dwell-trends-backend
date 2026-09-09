@@ -5,7 +5,8 @@ import {
   toggleWishlist, 
   updateUserProfile, 
   directResetPassword ,
-  getUserProfile
+  getUserProfile,
+  logoutUser
 } from "../controllers/user.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+router.post("/logout", protect, logoutUser);
 router.post("/reset-password", directResetPassword);
 router.post("/wishlist", protect, toggleWishlist);
 router.get("/profile", protect, getUserProfile);
